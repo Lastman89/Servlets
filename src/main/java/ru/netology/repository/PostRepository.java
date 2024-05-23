@@ -1,41 +1,28 @@
 package ru.netology.repository;
 
-import ru.netology.exception.NotFoundException;
+
 import ru.netology.model.Post;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
+import java.util.stream.Collectors;
 
 // Stub
 public class PostRepository {
 
-    private Map<Long, String> map = new HashMap<>();
-    private long count = 0;
-    NotFoundException exception = new NotFoundException();
-    private Lock ThreadLock;
-    private Condition condition;
+    private Map<Long, String> map = new ConcurrentHashMap<>();
+    private AtomicInteger count = new AtomicInteger();
 
-    //ПОТОКОБЕЗОПАСНОСТЬ + РЕФАКТОРИНГ
     public List<Post> all() {
-        Iterator<Map.Entry<Long, String>> iterator = map.entrySet().iterator();
         List<Post> collectionPost = new ArrayList<>();
-        ThreadLock.lock();
-        try {
-            condition.await();
-            while (iterator.hasNext()) {
-                Map.Entry<Long, String> entry = iterator.next();
-                Long key = entry.getKey();
-                String value = entry.getValue();
-                Post post = new Post(key, value);
-                collectionPost.add(post);
-            }
-            condition.signalAll();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } finally {
-            ThreadLock.unlock();
-        }
+        Post post = (Post) map.entrySet()
+                .stream()
+                .map(e -> e.getKey() + ": " + e.getValue())
+                .collect(Collectors.toList());
+        collectionPost.add(post);
         return collectionPost;
     }
 
@@ -47,56 +34,27 @@ public class PostRepository {
     }
 
     public Post save(Post post) {
-        ThreadLock.lock();
-        try {
-            condition.await();
-            if (post.getId() == 0) {
-                count += 1;
-                map.put(count, post.getContent());
-                post.setId(count);
+
+        if (post.getId() == 0) {
+            count.getAndIncrement();
+            map.put((long) count.get(), post.getContent());
+            post.setId(count.get());
+            post.setContent(map.get(post.getId()));
+        } else {
+
+            if (map.get(post.getId()) != null) {
+                map.put(post.getId(), post.getContent());
+                post.setId(post.getId());
                 post.setContent(map.get(post.getId()));
-            } else {
-                Iterator<Map.Entry<Long, String>> iterator = map.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    Map.Entry<Long, String> entry = iterator.next();
-                    Long key = entry.getKey();
-                    if (key == post.getId()) {
-                        map.put(key, post.getContent());
-                        post.setId(key);
-                        post.setContent(map.get(post.getId()));
-                    } else {
-                        exception.printStackTrace();
-                    }
-                }
             }
-            condition.signalAll();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } finally {
-            ThreadLock.unlock();
+
         }
+
         return post;
     }
 
     public void removeById(long id) {
-        Iterator<Map.Entry<Long, String>> iterator = map.entrySet().iterator();
-        ThreadLock.lock();
-        try {
-            condition.await();
-            while (iterator.hasNext()) {
-                Map.Entry<Long, String> entry = iterator.next();
-                Long key = entry.getKey();
-                if (key == id) {
-                    map.remove(id);
-                } else {
-                    exception.printStackTrace();
-                }
-            }
-            condition.signalAll();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } finally {
-            ThreadLock.unlock();
-        }
+        map.remove(id);
+
     }
 }
