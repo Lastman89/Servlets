@@ -1,6 +1,7 @@
 package ru.netology.repository;
 
 
+import org.springframework.stereotype.Repository;
 import ru.netology.model.Post;
 
 import java.util.*;
@@ -10,7 +11,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.stream.Collectors;
 
-// Stub
+@Repository
 public class PostRepository {
 
     private Map<Long, String> map = new ConcurrentHashMap<>();
